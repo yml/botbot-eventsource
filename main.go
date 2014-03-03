@@ -55,12 +55,19 @@ func main() {
 	srv := eventsource.NewServer()
 	defer srv.Close()
 
-	psub := make(chan string, 1)
-	psub <- "channel_update:*"
+	psub := make(chan string, 0)
 	messages := make(chan goredis.Message, 0)
 
 	fmt.Println("Start listening to redis Publication BUS for: `channel_update:*`")
 	go client.Subscribe(nil, nil, psub, nil, messages)
+
+	// Listening to all channel updates
+	// psub <- "channel_update:*"
+
+	// TODO (yml) remove after debuging  only go-nuts, rust and docker for now
+	psub <- "channel_update:5"  // go-nuts
+	psub <- "channel_update:33" //rust
+	psub <- "channel_update:31" //docker
 
 	// Start a goroutine that proxy all messages from `channel_update:*` to debug eventsource Channel
 	go proxyAllMessages(srv, messages)
@@ -68,6 +75,7 @@ func main() {
 	m := martini.Classic()
 	// eventsource endpoints
 	m.Get("/:channel/eventsource", func(w http.ResponseWriter, req *http.Request, params martini.Params) {
+		//TODO
 		srv.Handler(params["channel"])(w, req)
 	})
 	m.Run()
