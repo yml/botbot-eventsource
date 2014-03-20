@@ -16,8 +16,10 @@ type Message struct {
 	Channel, Html string
 }
 
-func (c *Message) Id() string    { return c.Idx }
-func (c *Message) Event() string { return c.Channel }
+func (c *Message) Id() string { return c.Idx }
+
+//func (c *Message) Event() string { return c.Channel }
+func (c *Message) Event() string { return "log" }
 func (c *Message) Data() string {
 	b, _ := json.Marshal(c)
 	return string(b)
@@ -125,7 +127,7 @@ func main() {
 
 	m := martini.Classic()
 	// eventsource endpoints
-	m.Get("/:token/eventsource", func(w http.ResponseWriter, req *http.Request, params martini.Params) {
+	m.Get("/push/:token", func(w http.ResponseWriter, req *http.Request, params martini.Params) {
 		token := params["token"]
 
 		if h.userExists(token) {
