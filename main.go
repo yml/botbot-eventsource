@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/codegangsta/martini"
 	"github.com/donovanhide/eventsource"
@@ -16,22 +15,10 @@ type Message struct {
 	Channel, Html string
 }
 
-func (c *Message) Id() string { return c.Idx }
-
-//func (c *Message) Event() string { return c.Channel }
-func (c *Message) Event() string { return "log" }
+func (c *Message) Id() string    { return c.Idx }
+func (c *Message) Event() string { return c.Channel }
 func (c *Message) Data() string {
-	b, _ := json.Marshal(c)
-	return string(b)
-}
-
-type IdGenerator struct {
-	val int
-}
-
-func (idg *IdGenerator) Next() int {
-	idg.val += 1
-	return idg.val
+	return c.Html
 }
 
 type Connection struct {
@@ -56,7 +43,7 @@ func (h *Hub) userExists(token string) bool {
 
 func (h *Hub) run() {
 	fmt.Println("Start the Hub")
-	idx := IdGenerator{}
+	var payload [3]string
 	psub := make(chan string, 0)
 	go h.client.Subscribe(nil, nil, psub, nil, h.messages)
 
@@ -79,12 +66,6 @@ func (h *Hub) run() {
 			h.Data[conn.channel] = append(h.Data[conn.channel], conn.token)
 			fmt.Println("[DEBUG] After h.Data assignment", h.Data[conn.channel])
 
-			//val, ok := h.Data[conn.channel]
-			//if ok {
-			//	h.Data[conn.channel] = append(val, conn.token)
-			//} else {
-			//	h.Data[conn.channel] = []string{conn.token}
-			//}
 		case token := <-h.unregister:
 			fmt.Println("unregister user: ", token)
 			ch, ok := h.Users[token]
@@ -92,12 +73,17 @@ func (h *Hub) run() {
 				delete(h.Users, token)
 				delete(h.Data, ch)
 			}
+
 		case msg := <-h.messages:
 			fmt.Println("message: ", msg.Channel)
+			err := json.Unmarshal(msg.Message, &payload)
+			if err != nil {
+				fmt.Println("[Error] An error occured while Unmarshalling the msg: ", msg)
+			}
 			message := &Message{
-				Idx:     strconv.Itoa(idx.Next()),
-				Channel: msg.Channel,
-				Html:    string(msg.Message),
+				Idx:     payload[2],
+				Channel: payload[0],
+				Html:    payload[1],
 			}
 			val, ok := h.Data[msg.Channel]
 			if ok && len(val) >= 1 {
@@ -117,6 +103,7 @@ func NewHub() *Hub {
 		messages:   make(chan goredis.Message, 0),
 		srv:        eventsource.NewServer(),
 	}
+	// We use the second redis database for the pub/sub
 	h.client.Db = 2
 	return &h
 }
