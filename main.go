@@ -48,13 +48,7 @@ func (h *Hub) run() {
 	go h.client.Subscribe(nil, nil, psub, nil, h.messages)
 
 	// Listening to all channel updates
-	// psub <- "channel_update:*"
-
-	// TODO (yml) remove after debuging  only go-nuts, rust and docker for now
-	psub <- "channel_update:1"  // django
-	psub <- "channel_update:5"  // go-nuts
-	psub <- "channel_update:33" //rust
-	psub <- "channel_update:31" //docker
+	psub <- "channel_update:*"
 
 	for {
 		select {
@@ -62,9 +56,9 @@ func (h *Hub) run() {
 			fmt.Println("register user: ", conn.token)
 			// TODO try to get the channel
 			h.Users[conn.token] = conn.channel
-			fmt.Println("[DEBUG] After h.Users assignment", h.Users[conn.token])
+			//fmt.Println("[DEBUG] After h.Users assignment", h.Users[conn.token])
 			h.Data[conn.channel] = append(h.Data[conn.channel], conn.token)
-			fmt.Println("[DEBUG] After h.Data assignment", h.Data[conn.channel])
+			//fmt.Println("[DEBUG] After h.Data assignment", h.Data[conn.channel])
 
 		case token := <-h.unregister:
 			fmt.Println("unregister user: ", token)
@@ -75,7 +69,6 @@ func (h *Hub) run() {
 			}
 
 		case msg := <-h.messages:
-			fmt.Println("message: ", msg.Channel)
 			err := json.Unmarshal(msg.Message, &payload)
 			if err != nil {
 				fmt.Println("[Error] An error occured while Unmarshalling the msg: ", msg)
@@ -87,7 +80,7 @@ func (h *Hub) run() {
 			}
 			val, ok := h.Data[msg.Channel]
 			if ok && len(val) >= 1 {
-				fmt.Println("[DEBUG] sending the current msg to the following tokens", val)
+				fmt.Println("[DEBUG] msg sent to tokens", val)
 				h.srv.Publish(val, message)
 			}
 		}
